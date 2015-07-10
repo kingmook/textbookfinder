@@ -3,13 +3,16 @@
 //LTI Provider for Campus Store Re-direction
 //Very basic LTI connection. Not checking signatures or comparing nonces as redirect content is public.
 //Takes a site name via context_id and parses the name in the format CODE#### (ie. ABED4F84)
-//Ping the registrar's api for duration as campus store uses calendar year instead of campus year
 //Pass the whole thing to apc as there is a bunch of string parsing and api pinging, cache is good for an hour
 
-//Can pass custom parameter fake to manually set the title
+//Can pass custom parameter fake to manually set the title and flag student view
+//Pass fake_student=(true|false) fake_course=(BIOL2P93D01SP2014MAIN)
 
 //Bring in the DB credentials
 require_once("info.php");
+
+//Bring in our functions
+require_once("functions.php");
 
 // Load up the LTI Support code
 require_once 'ims-blti/blti.php';
@@ -63,17 +66,13 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 
 			//Substring out the course name and add a space
 			$fourCode = substr($title, 0, 4);
-			$eightCode = $fourCode.substr($title, ($dashLoc+4), 4);
+			$eightCode = substr($title, $dashLoc, 8);
 
-			//Append to the array
-			$titleData['eightCode'] = $eightCode;
+			//Append the department code to the array
+			$titleData['fourCode'] = trim($fourCode);
 
-			//IELP Exception
-			//Campus Store currently does not include the duration N in IELP courses. Strip that out
-			//These seems to be resolved at the bookstore end. Held here as I'm not sure this is entirely fixed.
-			/*if (trim($fourCode) === "IELP"){
-				$titleData['eightCode'] = str_replace("N", "", $titleData['eightCode']);
-			}*/
+			//Append the full course code to the array
+			$titleData['eightCode'] = trim($eightCode);
 
 			//Grab the duration from the title (8 characters after the -)
 			$duration = substr($title, ($dashLoc+8), 3);
@@ -85,25 +84,27 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 				$duration = $one.$two;
 			}
 
-			//Append to the array
+			//Append duration to the array
 			$titleData['duration'] = $duration;
 
 			//Need to Pull out the term (11 characters after the -)
 			$term = substr($title, ($dashLoc+11), 2);
 
-			//Append to the array
+			//Append term to the array
 			$titleData['term'] = $term;
 
-			//The campus store's store uses calendar years
-			//Lets check to make sure its not a calender year 2015 but campus year 2014 class. Hit the Registrar duration api to show start and end dates
-			$regApi = file_get_contents($registrarLookup.substr($duration, 1).":".$term.":ALL");
-			//echo $regApi."<br />";
+			//Hit the CPI Service API for the Faculty info
+			$xml_string = file_get_contents('https://cpi.brocku.ca/services/xml/department/'.strtolower($titleData['fourCode']).'');
+			$cpiXML = new SimpleXMLElement($xml_string);
 
-			//Pull of the first year that starts with 20 - yeah I know this will only work for 86 years. If we're seriously using this in 86 years I apologize to whomever is reading this.
-			$yearPos = strpos($regApi, "20");
+			//Add the faculty to the array and cast to a string becuase upc doesn't like objects
+			$titleData['faculty'] = (string)($cpiXML->faculty);
 
-			//Only grab the year minus the 20
-			$year = substr($regApi, $yearPos+2, 2);
+			//Get the short faculty code
+			$titleData['shortFaculty'] = facultyShort($titleData['faculty']);
+
+			//Pull the two final digit year out the title
+			$year = substr($title, ($dashLoc+15), 2);
 
 			//Append to the array
 			$titleData['year'] = $year;
@@ -128,8 +129,7 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 			echo '<button aria-label="Instructor View of Tool" value="Instructor View of Tool" id="instructor" class="sak-button sak-button-selected" onclick="selected(\'instructor\', \'student\'); document.getElementById(\'display\').src=\''.$bookwareApi.'/for-faculty--staff\';">Instructor View</button>';
 		
 			//Switch to student view
-			echo '<button aria-label="Student View of Tool" value="Student View of Tool" id="student" class="sak-button" onclick="selected(\'student\', \'instructor\'); document.getElementById(\'display\').src=\''.$bookwareApi.'/lms-search/?course%5b0%5d=,'.$titleData['term'].''.$titleData['year'].',,'.$titleData['eightCode'].'\';">Student View</button>';
-			//onclick="selected("student", "instructor");		
+			echo '<button aria-label="Student View of Tool" value="Student View of Tool" id="student" class="sak-button" onclick="selected(\'student\', \'instructor\'); document.getElementById(\'display\').src=\''.$bookwareApi.'/lms-search/?course%5b0%5d='.$titleData['shortFaculty'].','.$titleData['term'].$titleData['year'].','.$titleData['duration'].','.$titleData['eightCode'].'\';">Student View</button>';
 
 			//Help button
 			echo '<button aria-label="Send Help Email" value="Send Help Email" class="sak-button" onclick="window.top.location=\'mailto:'.$supportEmail.'?Subject=Textbook Finder in Sakai - '.$titleData['eightCode'].'\'">Help</button>';
@@ -147,7 +147,7 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 		//Or show them the student bookstore page
 		else{	
 			//Forward them on to the correct campus store page
-			header('Location: '.$bookwareApi.'/lms-search/?course%5b0%5d=,'.$titleData['term'].''.$titleData['year'].',,'.$titleData['eightCode'].'');
+			header('Location: '.$bookwareApi.'/lms-search/?course%5b0%5d='.$titleData['shortFaculty'].','.$titleData['term'].$titleData['year'].','.$titleData['duration'].','.$titleData['eightCode'].'');
 		}
 
 	}

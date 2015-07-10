@@ -6,5 +6,12 @@
 $lti_auth = array('key' => 'key', 'secret' => 'secret');
 
 //Support Email shown to users in the tool
-$supportEmail = "support@yourinstitution.com";
+$supportEmail = "support@yourinstiution.ca";
+
+//Bookware API Location
+$bookwareApi = "https://yourinstiution.bookware3000.ca";
+
+//Registrar Lookup Location
+$registrarLookup = "https://yourinstiution.ca/registrar";
+
 ?>

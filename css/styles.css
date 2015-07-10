@@ -43,9 +43,10 @@ h2{
 	padding-top:50px;
 }
 
-a{
+button, a{
 	color:white;
 	text-decoration: none;
+	border:none;
 }
 
 ul{
@@ -67,5 +68,9 @@ ul{
 }
 
 .sak-button:hover{
+	background:#585858;
+}
+
+.sak-button-selected{
 	background:#585858;
 }

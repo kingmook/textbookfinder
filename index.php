@@ -8,9 +8,6 @@
 //Can pass custom parameter fake to manually set the title and flag student view
 //Pass fake_student=(true|false) fake_course=(BIOL2P93D01SP2014MAIN) fake_nocache=(true|false)
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);	
-
 //Bring in the DB credentials
 require_once("info.php");
 

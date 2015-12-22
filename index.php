@@ -6,7 +6,10 @@
 //Pass the whole thing to apc as there is a bunch of string parsing and api pinging, cache is good for an hour
 
 //Can pass custom parameter fake to manually set the title and flag student view
-//Pass fake_student=(true|false) fake_course=(BIOL2P93D01SP2014MAIN)
+//Pass fake_student=(true|false) fake_course=(BIOL2P93D01SP2014MAIN) fake_nocache=(true|false)
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);	
 
 //Bring in the DB credentials
 require_once("info.php");
@@ -53,8 +56,8 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 		}
 
 		//Check if the data is cached in APC
-		if (($titleData = apc_fetch('campusStore_'.$title)) && $apcOn == TRUE){}
-
+		if (($titleData = apc_fetch('campusStore_'.$title)) && $apcOn == TRUE && $context->info['custom_fake_nocache'] !== "true"){} 
+		
 		//Data not cached start pulling!
 		else{
 			//Parse out the 8 long code + class
@@ -95,7 +98,7 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 
 			//Hit the CPI Service API for the Faculty info
 			$xml_string = file_get_contents('https://cpi.brocku.ca/services/xml/department/'.strtolower($titleData['fourCode']).'');
-			$cpiXML = new SimpleXMLElement($xml_string);
+			$cpiXML = new SimpleXMLElement($xml_string); 
 
 			//Add the faculty to the array and cast to a string becuase upc doesn't like objects
 			$titleData['faculty'] = (string)($cpiXML->faculty);
@@ -107,7 +110,7 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 			$year = substr($title, ($dashLoc+15), 2);
 
 			//Append to the array
-			$titleData['year'] = $year;
+			$titleData['year'] = getDurationDate($registrarLookup, $duration, $term);
 
 			//Make sure apc is on
 			if($apcOn == TRUE){
@@ -126,7 +129,7 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 			echo '<ul aria-label="Textbook Finder Menu">';
 
 			//Switch to instructor view
-			echo '<button aria-label="Instructor View of Tool" value="Instructor View of Tool" id="instructor" class="sak-button sak-button-selected" onclick="selected(\'instructor\', \'student\'); document.getElementById(\'display\').src=\''.$bookwareApi.'/for-faculty--staff\';">Instructor View</button>';
+			echo '<button aria-label="Instructor View of Tool" value="Instructor View of Tool" id="instructor" class="sak-button sak-button-selected" onclick="selected(\'instructor\', \'student\'); document.getElementById(\'display\').src=\''.$defaultFacStaff.'\';">Instructor View</button>';
 		
 			//Switch to student view
 			echo '<button aria-label="Student View of Tool" value="Student View of Tool" id="student" class="sak-button" onclick="selected(\'student\', \'instructor\'); document.getElementById(\'display\').src=\''.$bookwareApi.'/lms-search/?course%5b0%5d='.$titleData['shortFaculty'].','.$titleData['term'].$titleData['year'].','.$titleData['duration'].','.$titleData['eightCode'].'\';">Student View</button>';
@@ -138,7 +141,7 @@ if($lti_auth['key'] == $context->info['oauth_consumer_key']){
 			echo '</ul>';
 			
 			//Instructor Mode iframe
-			echo '<iframe src="'.$bookwareApi.'/for-faculty--staff" width=100% height=1800 frameborder=0 id=display></iframe>';
+			echo '<iframe src="'.$defaultFacStaff.'" width=100% height=1800 frameborder=0 id=display></iframe>';
 			
 			//End the nav
 			echo '</nav>';
